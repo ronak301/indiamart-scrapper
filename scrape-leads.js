@@ -33,6 +33,45 @@ async function clickLabelOrCheckInput(page, labelSelector, inputSelector) {
   }
 }
 
+function parseOrderValue(text) {
+  if (!text) return 0;
+
+  // Normalize text
+  text = text.toLowerCase().replace(/[₹,]/g, "").trim();
+
+  // Standardize units
+  text = text
+    .replace(/crores?/g, " crore")
+    .replace(/\bcr\b/g, " crore")
+    .replace(/lakhs?/g, " lakh")
+    .replace(/\bl\b/g, " lakh")
+    .replace(/thousands?/g, " thousand")
+    .replace(/\bk\b/g, " thousand");
+
+  // Find all numeric parts (including decimals)
+  const numbers = text.match(/\d+(\.\d+)?/g);
+  if (!numbers) return 0;
+
+  // Determine multiplier (based on last mentioned unit)
+  let multiplier = 1;
+  if (text.includes("crore")) multiplier = 1e7;
+  else if (text.includes("lakh")) multiplier = 1e5;
+  else if (text.includes("thousand")) multiplier = 1e3;
+
+  // Handle "x to y lakh" or "x - y crore" formats
+  const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
+  const maxValue = Math.max(...numericValues);
+
+  // Handle vague phrases like "more than", "above", "upto"
+  if (/more than|above|over/i.test(text)) {
+    return maxValue * 1.1; // slightly boost
+  } else if (/upto|up to|below|less than/i.test(text)) {
+    return maxValue * 0.9;
+  }
+
+  return maxValue;
+}
+
 function loadHistory() {
   try {
     return JSON.parse(fs.readFileSync("contacted-history.json", "utf8"));
@@ -112,6 +151,45 @@ function getTodaysContacts(history) {
 
   console.log(`📦 Found ${leads.length} leads, filtering...`);
 
+  function parseOrderValue(text) {
+    if (!text) return 0;
+
+    // Normalize text
+    text = text.toLowerCase().replace(/[₹,]/g, "").trim();
+
+    // Standardize units
+    text = text
+      .replace(/crores?/g, " crore")
+      .replace(/\bcr\b/g, " crore")
+      .replace(/lakhs?/g, " lakh")
+      .replace(/\bl\b/g, " lakh")
+      .replace(/thousands?/g, " thousand")
+      .replace(/\bk\b/g, " thousand");
+
+    // Find all numeric parts (including decimals)
+    const numbers = text.match(/\d+(\.\d+)?/g);
+    if (!numbers) return 0;
+
+    // Determine multiplier (based on last mentioned unit)
+    let multiplier = 1;
+    if (text.includes("crore")) multiplier = 1e7;
+    else if (text.includes("lakh")) multiplier = 1e5;
+    else if (text.includes("thousand")) multiplier = 1e3;
+
+    // Handle "x to y lakh" or "x - y crore" formats
+    const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
+    const maxValue = Math.max(...numericValues);
+
+    // Handle vague phrases like "more than", "above", "upto"
+    if (/more than|above|over/i.test(text)) {
+      return maxValue * 1.1; // slightly boost
+    } else if (/upto|up to|below|less than/i.test(text)) {
+      return maxValue * 0.9;
+    }
+
+    return maxValue;
+  }
+
   // --- Apply filters ---
   const filtered = leads.filter((lead) => {
     const lowerTitle = lead.title.toLowerCase();
@@ -120,12 +198,9 @@ function getTodaysContacts(history) {
       (k) => lowerTitle.includes(k) || lowerAll.includes(k)
     );
 
-    let maxValue = 0;
     const match = lead.probableOrderValue?.match(/([\d,]+)/g);
-    if (match?.length) {
-      const numbers = match.map((n) => parseInt(n.replace(/,/g, ""), 10));
-      maxValue = Math.max(...numbers);
-    }
+
+    const maxValue = parseOrderValue(lead.probableOrderValue);
 
     const isHighValue = maxValue >= minOrderValue;
     return matchesKeyword || isHighValue;
