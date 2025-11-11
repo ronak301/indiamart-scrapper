@@ -1,13 +1,11 @@
 {
   "name": "indiamart-scraper",
   "version": "1.0.0",
-  "description": "IndiaMart auto lead scraper and buyer clicker",
   "main": "scheduler.js",
   "type": "module",
   "scripts": {
-    "build": "npm install && npx playwright install chromium",
-    "start": "node scheduler.js",
-    "postinstall": "npx playwright install chromium"
+    "build": "npx playwright install-deps && npx playwright install chromium",
+    "start": "node scheduler.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

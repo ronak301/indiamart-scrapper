@@ -72,6 +72,17 @@ function parseOrderValue(text) {
   return maxValue;
 }
 
+async function launchBrowserSafe() {
+  try {
+    console.log("🚀 Launching browser...");
+    return await chromium.launch({ headless: true });
+  } catch (err) {
+    console.log("⚠️ Chromium missing, reinstalling...");
+    execSync("npx playwright install chromium", { stdio: "inherit" });
+    return await chromium.launch({ headless: true });
+  }
+}
+
 function loadHistory() {
   try {
     return JSON.parse(fs.readFileSync("contacted-history.json", "utf8"));
@@ -92,7 +103,8 @@ function getTodaysContacts(history) {
 // --- Main Function ---
 (async () => {
   console.log("🚀 Launching browser...");
-  const browser = await chromium.launch({ headless: false });
+  const browser = await launchBrowserSafe();
+
   const context = await browser.newContext({ storageState: "state.json" });
   const page = await context.newPage();
 
