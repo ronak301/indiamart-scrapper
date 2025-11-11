@@ -1,6 +1,7 @@
 // scrape-leads.js
 import { chromium } from "playwright";
 import fs from "fs";
+import { execSync } from "child_process";
 
 // --- Load Config ---
 const config = JSON.parse(fs.readFileSync("config.json", "utf8"));
