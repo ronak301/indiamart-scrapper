@@ -1,6 +1,6 @@
 {
   "maxLeadsPerDay": 1,
-  "minOrderValue": 10000,
+  "minOrderValue": 250000,
   "keywords": [
     "box cricket setup",
     "full turf setup",
@@ -12,7 +12,7 @@
   ],
   "checkIntervalSeconds": 40,
   "message": "Hi! We specialize in constructing Box Cricket and Turf setups. Let's connect!",
-  "autoContact": false,
+  "autoContact": true,
   "telegram": {
     "enabled": true,
     "botToken": "8592728934:AAEowhrEnhxY0MvD8n_kn9fFLha2CFKTzQs",
