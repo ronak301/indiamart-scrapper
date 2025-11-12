@@ -2,75 +2,39 @@
 import { chromium } from "playwright";
 import fs from "fs";
 import { execSync } from "child_process";
+import fetch from "node-fetch"; // 👈 For Telegram API
 
 // --- Load Config ---
 const config = JSON.parse(fs.readFileSync("config.json", "utf8"));
-const { maxLeadsPerDay, minOrderValue, keywords, message } = config;
+const {
+  maxLeadsPerDay,
+  minOrderValue,
+  keywords,
+  message,
+  autoContact,
+  telegram,
+} = config;
 
 // --- Helper functions ---
-async function clickLabelOrCheckInput(page, labelSelector, inputSelector) {
+async function sendTelegramMessage(text) {
+  if (!telegram?.enabled || !telegram.botToken || !telegram.chatId) return;
   try {
-    const label = await page.$(labelSelector);
-    if (label) {
-      await label.scrollIntoViewIfNeeded();
-      await label.click({ force: true });
-      return true;
-    }
-
-    const ok = await page
-      .$eval(inputSelector, (inp) => {
-        if (!inp) return false;
-        inp.checked = true;
-        const ev = new Event("change", { bubbles: true });
-        inp.dispatchEvent(ev);
-        const clickEv = new MouseEvent("click", { bubbles: true });
-        inp.dispatchEvent(clickEv);
-        return true;
-      })
-      .catch(() => false);
-    return ok;
-  } catch (e) {
-    return false;
+    await fetch(
+      `https://api.telegram.org/bot${telegram.botToken}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: telegram.chatId,
+          text,
+          parse_mode: "HTML",
+        }),
+      }
+    );
+    console.log("📩 Sent update to Telegram");
+  } catch (err) {
+    console.log("⚠️ Telegram send failed:", err.message);
   }
-}
-
-function parseOrderValue(text) {
-  if (!text) return 0;
-
-  // Normalize text
-  text = text.toLowerCase().replace(/[₹,]/g, "").trim();
-
-  // Standardize units
-  text = text
-    .replace(/crores?/g, " crore")
-    .replace(/\bcr\b/g, " crore")
-    .replace(/lakhs?/g, " lakh")
-    .replace(/\bl\b/g, " lakh")
-    .replace(/thousands?/g, " thousand")
-    .replace(/\bk\b/g, " thousand");
-
-  // Find all numeric parts (including decimals)
-  const numbers = text.match(/\d+(\.\d+)?/g);
-  if (!numbers) return 0;
-
-  // Determine multiplier (based on last mentioned unit)
-  let multiplier = 1;
-  if (text.includes("crore")) multiplier = 1e7;
-  else if (text.includes("lakh")) multiplier = 1e5;
-  else if (text.includes("thousand")) multiplier = 1e3;
-
-  // Handle "x to y lakh" or "x - y crore" formats
-  const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
-  const maxValue = Math.max(...numericValues);
-
-  // Handle vague phrases like "more than", "above", "upto"
-  if (/more than|above|over/i.test(text)) {
-    return maxValue * 1.1; // slightly boost
-  } else if (/upto|up to|below|less than/i.test(text)) {
-    return maxValue * 0.9;
-  }
-
-  return maxValue;
 }
 
 async function launchBrowserSafe() {
@@ -101,23 +65,47 @@ function getTodaysContacts(history) {
   return history.filter((h) => h.date.startsWith(today));
 }
 
+function parseOrderValue(text) {
+  if (!text) return 0;
+  text = text.toLowerCase().replace(/[₹,]/g, "").trim();
+
+  text = text
+    .replace(/crores?/g, " crore")
+    .replace(/\bcr\b/g, " crore")
+    .replace(/lakhs?/g, " lakh")
+    .replace(/\bl\b/g, " lakh")
+    .replace(/thousands?/g, " thousand")
+    .replace(/\bk\b/g, " thousand");
+
+  const numbers = text.match(/\d+(\.\d+)?/g);
+  if (!numbers) return 0;
+
+  let multiplier = 1;
+  if (text.includes("crore")) multiplier = 1e7;
+  else if (text.includes("lakh")) multiplier = 1e5;
+  else if (text.includes("thousand")) multiplier = 1e3;
+
+  const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
+  const maxValue = Math.max(...numericValues);
+
+  if (/more than|above|over/i.test(text)) {
+    return maxValue * 1.1;
+  } else if (/upto|up to|below|less than/i.test(text)) {
+    return maxValue * 0.9;
+  }
+
+  return maxValue;
+}
+
 // --- Main Function ---
 (async () => {
-  console.log("🚀 Launching browser...");
   const browser = await launchBrowserSafe();
-
   const context = await browser.newContext({ storageState: "state.json" });
   const page = await context.newPage();
 
   const history = loadHistory();
   const todays = getTodaysContacts(history);
   console.log(`📂 Loaded ${history.length} total, ${todays.length} today.`);
-
-  if (todays.length >= maxLeadsPerDay) {
-    console.log(`✅ Already contacted ${maxLeadsPerDay} leads today. Exiting.`);
-    await browser.close();
-    return;
-  }
 
   console.log("➡️ Navigating to Recent Leads...");
   await page.goto("https://seller.indiamart.com/bltxn/?pref=recent", {
@@ -126,7 +114,6 @@ function getTodaysContacts(history) {
   });
   await page.waitForTimeout(3000);
 
-  // --- Extract leads ---
   console.log("📋 Extracting leads...");
   const leads = await page.$$eval("#bl_listing .bl_grid", (nodes) =>
     nodes.map((el, idx) => {
@@ -136,74 +123,25 @@ function getTodaysContacts(history) {
         el.querySelector(".lstNwLftCnt")?.innerText?.split("\n")?.[0]?.trim() ||
         "Unknown";
 
-      const city = el.querySelector('input[id^="card_city_"]')?.value || "";
-      const state = el.querySelector('input[id^="card_state_"]')?.value || "";
-      const category = el.querySelector('input[name="mcatname"]')?.value || "";
       const probableText =
         Array.from(el.querySelectorAll("table tbody tr")).find((r) =>
           r.innerText.toLowerCase().includes("probable order value")
         )?.innerText || "";
-      const probableMatch =
-        probableText.match(/Rs\.?\s*([\d,]+)(?:\s*-\s*([\d,]+))?/i) ||
-        probableText.match(/₹\s?([\d,]+)/);
-      let probableOrderValue = probableMatch ? probableMatch[0].trim() : "";
 
       const offerId = el.querySelector('input[name="ofrid"]')?.value || "";
 
-      return {
-        index: idx,
-        offerId,
-        title,
-        category,
-        city,
-        state,
-        probableOrderValue,
-      };
+      return { index: idx, offerId, title, probableOrderValue: probableText };
     })
   );
 
-  console.log(`📦 Found ${leads.length} leads, filtering...`);
+  console.log(`📦 Found ${leads.length} leads in total:`);
+  leads.forEach((l, i) => {
+    console.log(
+      `   ${i + 1}. ${l.title} → ${l.probableOrderValue || "No value"}`
+    );
+  });
 
-  function parseOrderValue(text) {
-    if (!text) return 0;
-
-    // Normalize text
-    text = text.toLowerCase().replace(/[₹,]/g, "").trim();
-
-    // Standardize units
-    text = text
-      .replace(/crores?/g, " crore")
-      .replace(/\bcr\b/g, " crore")
-      .replace(/lakhs?/g, " lakh")
-      .replace(/\bl\b/g, " lakh")
-      .replace(/thousands?/g, " thousand")
-      .replace(/\bk\b/g, " thousand");
-
-    // Find all numeric parts (including decimals)
-    const numbers = text.match(/\d+(\.\d+)?/g);
-    if (!numbers) return 0;
-
-    // Determine multiplier (based on last mentioned unit)
-    let multiplier = 1;
-    if (text.includes("crore")) multiplier = 1e7;
-    else if (text.includes("lakh")) multiplier = 1e5;
-    else if (text.includes("thousand")) multiplier = 1e3;
-
-    // Handle "x to y lakh" or "x - y crore" formats
-    const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
-    const maxValue = Math.max(...numericValues);
-
-    // Handle vague phrases like "more than", "above", "upto"
-    if (/more than|above|over/i.test(text)) {
-      return maxValue * 1.1; // slightly boost
-    } else if (/upto|up to|below|less than/i.test(text)) {
-      return maxValue * 0.9;
-    }
-
-    return maxValue;
-  }
-
-  // --- Apply filters ---
+  // --- Filter leads ---
   const filtered = leads.filter((lead) => {
     const lowerTitle = lead.title.toLowerCase();
     const lowerAll = JSON.stringify(lead).toLowerCase();
@@ -211,32 +149,81 @@ function getTodaysContacts(history) {
       (k) => lowerTitle.includes(k) || lowerAll.includes(k)
     );
 
-    const match = lead.probableOrderValue?.match(/([\d,]+)/g);
-
     const maxValue = parseOrderValue(lead.probableOrderValue);
-
     const isHighValue = maxValue >= minOrderValue;
     return matchesKeyword || isHighValue;
   });
 
   console.log(
-    `🎯 Found ${filtered.length} filtered leads (≥ ₹${minOrderValue} or keyword match).`
+    `🎯 Filtered ${filtered.length} leads (≥ ₹${minOrderValue} or keyword match):`
   );
+  filtered.forEach((f, i) => {
+    console.log(
+      `   ${i + 1}. ${f.title} → ₹${parseOrderValue(
+        f.probableOrderValue
+      ).toLocaleString()}`
+    );
+  });
 
-  // --- Skip already contacted ---
-  const newLeads = filtered.filter(
-    (l) => !history.some((h) => h.offerId === l.offerId)
-  );
-
-  if (newLeads.length === 0) {
-    console.log("✅ No new leads found.");
+  if (filtered.length === 0) {
+    console.log("✅ No relevant leads found.");
     await browser.close();
     return;
   }
 
+  // --- Identify only *new* filtered leads for today ---
+  const newFilteredLeads = filtered.filter(
+    (lead) => !history.some((h) => h.offerId === lead.offerId)
+  );
+
+  if (newFilteredLeads.length === 0) {
+    console.log("✅ No new leads since last check. Skipping Telegram.");
+    await browser.close();
+    return;
+  }
+
+  // --- Log & send Telegram for new leads only ---
+  const now = new Date();
+  const timeStr = now.toLocaleString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  let summary = `📢 <b>${newFilteredLeads.length} new lead${
+    newFilteredLeads.length > 1 ? "s" : ""
+  } above ₹${minOrderValue.toLocaleString()}</b>\n\n`;
+
+  newFilteredLeads.forEach((lead, i) => {
+    const val = parseOrderValue(lead.probableOrderValue);
+    summary += `${i + 1}. ${
+      lead.title
+    }\nMax Value: ₹${val.toLocaleString()}\nTime: ${timeStr}\n\n`;
+  });
+
+  console.log("🆕 New leads detected:");
+  console.log(summary);
+  await sendTelegramMessage(summary);
+
+  // --- Skip contact clicks if disabled ---
+  if (!autoContact) {
+    console.log("🚫 autoContact=false → Skipping contact clicks.");
+    await browser.close();
+    return;
+  }
+
+  // --- Skip contact clicks if daily quota reached ---
+  if (todays.length >= maxLeadsPerDay) {
+    console.log(
+      `✅ Already contacted ${maxLeadsPerDay} leads today. Skipping clicks but Telegram sent.`
+    );
+    await browser.close();
+    return;
+  }
+
+  // --- Contact only within remaining quota ---
   const remainingQuota = maxLeadsPerDay - todays.length;
-  const leadsToContact = newLeads.slice(0, remainingQuota);
-  console.log(`📞 Will contact up to ${leadsToContact.length} leads today.`);
+  const leadsToContact = newFilteredLeads.slice(0, remainingQuota);
 
   for (const lead of leadsToContact) {
     try {
