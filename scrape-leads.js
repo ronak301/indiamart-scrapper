@@ -205,9 +205,22 @@ function parseOrderValue(text) {
   console.log(summary);
   await sendTelegramMessage(summary);
 
+  // --- Save these new leads to history (even if not auto-contacted) ---
+  newFilteredLeads.forEach((lead) => {
+    history.push({
+      offerId: lead.offerId,
+      title: lead.title,
+      date: new Date().toISOString(),
+    });
+  });
+  saveHistory(history);
+  console.log(`💾 Logged ${newFilteredLeads.length} new leads to history.`);
+
   // --- Skip contact clicks if disabled ---
   if (!autoContact) {
-    console.log("🚫 autoContact=false → Skipping contact clicks.");
+    console.log(
+      "🚫 autoContact=false → Skipping contact clicks (but logged + Telegram sent)."
+    );
     await browser.close();
     return;
   }

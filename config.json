@@ -14,8 +14,8 @@
   "message": "Hi! We specialize in constructing Box Cricket and Turf setups. Let's connect!",
   "autoContact": false,
   "telegram": {
-    "enabled": false,
-    "botToken": "YOUR_TELEGRAM_BOT_TOKEN",
-    "chatId": "YOUR_TELEGRAM_CHAT_ID"
+    "enabled": true,
+    "botToken": "8592728934:AAEowhrEnhxY0MvD8n_kn9fFLha2CFKTzQs",
+    "chatId": "-5076441558"
   }
 }
