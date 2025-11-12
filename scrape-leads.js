@@ -130,7 +130,16 @@ function parseOrderValue(text) {
 
       const offerId = el.querySelector('input[name="ofrid"]')?.value || "";
 
-      return { index: idx, offerId, title, probableOrderValue: probableText };
+      const leadTime =
+        el.querySelector(".lstNwRgtCnt .gryTxt")?.innerText?.trim() || ""; // 👈 this extracts the actual lead time
+
+      return {
+        index: idx,
+        offerId,
+        title,
+        probableOrderValue: probableText,
+        leadTime,
+      };
     })
   );
 
@@ -201,7 +210,7 @@ function parseOrderValue(text) {
     const val = parseOrderValue(lead.probableOrderValue);
     summary += `${i + 1}. ${
       lead.title
-    }\nMax Value: ₹${val.toLocaleString()}\nTime: ${timeStr}\n\n`;
+    }\nMax Value: ₹${val.toLocaleString()}\nTime: ${lead.leadTime}\n\n`;
   });
 
   console.log("🆕 New leads detected:");
