@@ -184,7 +184,10 @@ function parseOrderValue(text) {
 
   // --- Log & send Telegram for new leads only ---
   const now = new Date();
-  const timeStr = now.toLocaleString("en-IN", {
+  const istTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
+  const timeStr = istTime.toLocaleString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
