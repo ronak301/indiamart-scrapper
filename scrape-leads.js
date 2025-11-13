@@ -61,7 +61,10 @@ function saveHistory(history) {
 }
 
 function getTodaysContacts(history) {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const istDate = new Date(istString);
+  const today = istDate.toISOString().split("T")[0]; // ensures IST midnight reset
   return history.filter((h) => h.date.startsWith(today));
 }
 
