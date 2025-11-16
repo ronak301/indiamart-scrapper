@@ -265,6 +265,7 @@ function parseOrderValue(text) {
 
       const msgBox = await page.$("#txtmsgbox");
       if (msgBox) {
+        await sendTelegramMessage("New Lead Bought: " + lead.title);
         await msgBox.fill(message);
         const sendBtn = await page.$("#sendbutton");
         if (sendBtn) {
