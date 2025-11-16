@@ -1,5 +1,5 @@
 {
-  "maxLeadsPerDay": 1,
+  "maxLeadsPerDay": 3,
   "minOrderValue": 250000,
   "keywords": [
     "box cricket setup",
@@ -10,7 +10,7 @@
     "Artificial Turf Football Field",
     "Cricket Pitch Maker in India"
   ],
-  "checkIntervalSeconds": 40,
+  "checkIntervalSeconds": 30,
   "message": "Hi! We specialize in constructing Box Cricket and Turf setups. Let's connect!",
   "autoContact": true,
   "telegram": {
