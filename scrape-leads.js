@@ -117,6 +117,32 @@ function parseOrderValue(text) {
   });
   await page.waitForTimeout(3000);
 
+  // --- Apply Location Filter from config.json ---
+  const locationMap = {
+    Recommended: "text=Recommended",
+    Rajasthan: "text=Rajasthan",
+    India: "text=India",
+    "Nearby States": "text=Nearby States",
+  };
+
+  if (config.locationFilter && locationMap[config.locationFilter]) {
+    console.log("📍 Applying location filter:", config.locationFilter);
+
+    try {
+      const selector = locationMap[config.locationFilter];
+
+      await page.waitForSelector(selector, { timeout: 10000 });
+      await page.click(selector);
+      await page.waitForTimeout(2000);
+
+      console.log(`✔️ Applied filter: ${config.locationFilter}`);
+    } catch (err) {
+      console.log("⚠️ Could not apply location filter:", err.message);
+    }
+  } else {
+    console.log("⚠️ No valid location filter specified in config.json");
+  }
+
   console.log("📋 Extracting leads...");
   const leads = await page.$$eval("#bl_listing .bl_grid", (nodes) =>
     nodes.map((el, idx) => {

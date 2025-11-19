@@ -1,6 +1,6 @@
 {
   "maxLeadsPerDay": 3,
-  "minOrderValue": 250000,
+  "minOrderValue": 100000,
   "keywords": [
     "box cricket setup",
     "full turf setup",
@@ -10,12 +10,14 @@
     "Artificial Turf Football Field",
     "Cricket Pitch Maker in India"
   ],
-  "checkIntervalSeconds": 30,
+  "checkIntervalSeconds": 40,
   "message": "Hi! We specialize in constructing Box Cricket and Turf setups. Let's connect!",
   "autoContact": true,
   "telegram": {
     "enabled": true,
     "botToken": "8592728934:AAEowhrEnhxY0MvD8n_kn9fFLha2CFKTzQs",
     "chatId": "-5076441558"
-  }
+  },
+  "locationFilter": "Rajasthan",
+  "_comment1": "Rajasthan  India  Recommended Nearby States"
 }
