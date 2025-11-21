@@ -70,34 +70,31 @@ function getTodaysContacts(history) {
 
 function parseOrderValue(text) {
   if (!text) return 0;
-  text = text.toLowerCase().replace(/[₹,]/g, "").trim();
 
-  text = text
-    .replace(/crores?/g, " crore")
-    .replace(/\bcr\b/g, " crore")
-    .replace(/lakhs?/g, " lakh")
-    .replace(/\bl\b/g, " lakh")
-    .replace(/thousands?/g, " thousand")
-    .replace(/\bk\b/g, " thousand");
+  // Extract just the right-hand value after ":"
+  const raw = text.split(":").pop().toLowerCase().trim();
 
-  const numbers = text.match(/\d+(\.\d+)?/g);
-  if (!numbers) return 0;
+  // Clean HTML junk or hidden tooltips
+  const cleaned = raw
+    .replace(/<\/?[^>]+(>|$)/g, "")
+    .replace(/[₹,]/g, "")
+    .trim();
 
+  // Find number
+  const numMatch = cleaned.match(/\d+(\.\d+)?/);
+  if (!numMatch) return 0;
+
+  const number = parseFloat(numMatch[0]);
+
+  // Detect the correct unit (in priority)
   let multiplier = 1;
-  if (text.includes("crore")) multiplier = 1e7;
-  else if (text.includes("lakh")) multiplier = 1e5;
-  else if (text.includes("thousand")) multiplier = 1e3;
+  if (/crore/.test(cleaned)) multiplier = 1e7;
+  else if (/lakh/.test(cleaned)) multiplier = 1e5;
+  else if (/thousand|k/.test(cleaned)) multiplier = 1e3;
 
-  const numericValues = numbers.map((n) => parseFloat(n) * multiplier);
-  const maxValue = Math.max(...numericValues);
+  const finalValue = number * multiplier;
 
-  if (/more than|above|over/i.test(text)) {
-    return maxValue * 1.1;
-  } else if (/upto|up to|below|less than/i.test(text)) {
-    return maxValue * 0.9;
-  }
-
-  return maxValue;
+  return finalValue;
 }
 
 // --- Main Function ---
@@ -160,7 +157,14 @@ function parseOrderValue(text) {
       const offerId = el.querySelector('input[name="ofrid"]')?.value || "";
 
       const leadTime =
-        el.querySelector(".lstNwRgtCnt .gryTxt")?.innerText?.trim() || ""; // 👈 this extracts the actual lead time
+        el.querySelector(".lstNwRgtCnt .gryTxt")?.innerText?.trim() || "";
+
+      // ---- LOCATION EXTRACTION ----
+      const city =
+        el.querySelector(".city_click")?.innerText?.trim() || "Unknown";
+
+      const state =
+        el.querySelector(".state_click")?.innerText?.trim() || "Unknown";
 
       return {
         index: idx,
@@ -168,6 +172,8 @@ function parseOrderValue(text) {
         title,
         probableOrderValue: probableText,
         leadTime,
+        city,
+        state,
       };
     })
   );
@@ -183,13 +189,21 @@ function parseOrderValue(text) {
   const filtered = leads.filter((lead) => {
     const lowerTitle = lead.title.toLowerCase();
     const lowerAll = JSON.stringify(lead).toLowerCase();
+
     const matchesKeyword = keywords.some(
       (k) => lowerTitle.includes(k) || lowerAll.includes(k)
     );
 
     const maxValue = parseOrderValue(lead.probableOrderValue);
     const isHighValue = maxValue >= minOrderValue;
-    return matchesKeyword || isHighValue;
+
+    // --- NEW: STATE FILTER ---
+    const matchesState =
+      !config.allowedStates || config.allowedStates.length === 0
+        ? true
+        : config.allowedStates.includes(lead.state);
+
+    return (matchesKeyword || isHighValue) && matchesState;
   });
 
   console.log(
@@ -237,9 +251,11 @@ function parseOrderValue(text) {
 
   newFilteredLeads.forEach((lead, i) => {
     const val = parseOrderValue(lead.probableOrderValue);
-    summary += `${i + 1}. ${
-      lead.title
-    }\nMax Value: ₹${val.toLocaleString()}\nTime: ${lead.leadTime}\n\n`;
+
+    summary +=
+      `${i + 1}. ${lead.title}\n` +
+      `State: ${lead.state} | City: ${lead.city}\n` +
+      `Max Value: ₹${val.toLocaleString()}\n`;
   });
 
   console.log("🆕 New leads detected:");
