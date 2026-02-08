@@ -1,15 +1,20 @@
-import cron from "node-cron";
-import { exec } from "child_process";
 import fs from "fs";
 
 const config = JSON.parse(fs.readFileSync("config.json", "utf8"));
-const interval = config.checkIntervalSeconds || 15;
+const INTERVAL = (config.checkIntervalSeconds || 60) * 1000;
 
-cron.schedule(`*/${interval} * * * * *`, () => {
-  console.log(`🚀 Running scrape-leads.js (every ${interval}s)`);
-  exec("node scrape-leads.js", (err, stdout, stderr) => {
-    if (err) console.error(err);
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
-  });
-});
+async function run() {
+  while (true) {
+    try {
+      console.log("🚀 Running scrape-leads.js");
+      await import("./scrape-leads.js");
+    } catch (err) {
+      console.error("❌ Run failed:", err);
+    }
+
+    // IMPORTANT: let memory settle
+    await new Promise((res) => setTimeout(res, INTERVAL));
+  }
+}
+
+run();

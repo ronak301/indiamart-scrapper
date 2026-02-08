@@ -29,7 +29,7 @@ async function sendTelegramMessage(text) {
           text,
           parse_mode: "HTML",
         }),
-      }
+      },
     );
     console.log("📩 Sent update to Telegram");
   } catch (err) {
@@ -40,7 +40,17 @@ async function sendTelegramMessage(text) {
 async function launchBrowserSafe() {
   try {
     console.log("🚀 Launching browser...");
-    return await chromium.launch({ headless: true });
+    return await chromium.launch({
+      headless: true,
+      args: [
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--disable-setuid-sandbox",
+        "--no-sandbox",
+        "--single-process",
+        "--no-zygote",
+      ],
+    });
   } catch (err) {
     console.log("⚠️ Chromium missing, reinstalling...");
     execSync("npx playwright install chromium", { stdio: "inherit" });
@@ -151,7 +161,7 @@ function parseOrderValue(text) {
 
       const probableText =
         Array.from(el.querySelectorAll("table tbody tr")).find((r) =>
-          r.innerText.toLowerCase().includes("probable order value")
+          r.innerText.toLowerCase().includes("probable order value"),
         )?.innerText || "";
 
       const offerId = el.querySelector('input[name="ofrid"]')?.value || "";
@@ -175,13 +185,13 @@ function parseOrderValue(text) {
         city,
         state,
       };
-    })
+    }),
   );
 
   console.log(`📦 Found ${leads.length} leads in total:`);
   leads.forEach((l, i) => {
     console.log(
-      `   ${i + 1}. ${l.title} → ${l.probableOrderValue || "No value"}`
+      `   ${i + 1}. ${l.title} → ${l.probableOrderValue || "No value"}`,
     );
   });
 
@@ -191,7 +201,7 @@ function parseOrderValue(text) {
     const lowerAll = JSON.stringify(lead).toLowerCase();
 
     const matchesKeyword = keywords.some(
-      (k) => lowerTitle.includes(k) || lowerAll.includes(k)
+      (k) => lowerTitle.includes(k) || lowerAll.includes(k),
     );
 
     const maxValue = parseOrderValue(lead.probableOrderValue);
@@ -207,13 +217,13 @@ function parseOrderValue(text) {
   });
 
   console.log(
-    `🎯 Filtered ${filtered.length} leads (≥ ₹${minOrderValue} or keyword match):`
+    `🎯 Filtered ${filtered.length} leads (≥ ₹${minOrderValue} or keyword match):`,
   );
   filtered.forEach((f, i) => {
     console.log(
       `   ${i + 1}. ${f.title} → ₹${parseOrderValue(
-        f.probableOrderValue
-      ).toLocaleString()}`
+        f.probableOrderValue,
+      ).toLocaleString()}`,
     );
   });
 
@@ -225,7 +235,7 @@ function parseOrderValue(text) {
 
   // --- Identify only *new* filtered leads for today ---
   const newFilteredLeads = filtered.filter(
-    (lead) => !history.some((h) => h.offerId === lead.offerId)
+    (lead) => !history.some((h) => h.offerId === lead.offerId),
   );
 
   if (newFilteredLeads.length === 0) {
@@ -237,7 +247,7 @@ function parseOrderValue(text) {
   // --- Log & send Telegram for new leads only ---
   const now = new Date();
   const istTime = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
   );
   const timeStr = istTime.toLocaleString("en-IN", {
     hour: "2-digit",
@@ -276,7 +286,7 @@ function parseOrderValue(text) {
   // --- Skip contact clicks if disabled ---
   if (!autoContact) {
     console.log(
-      "🚫 autoContact=false → Skipping contact clicks (but logged + Telegram sent)."
+      "🚫 autoContact=false → Skipping contact clicks (but logged + Telegram sent).",
     );
     await browser.close();
     return;
@@ -285,7 +295,7 @@ function parseOrderValue(text) {
   // --- Skip contact clicks if daily quota reached ---
   if (todays.length >= maxLeadsPerDay) {
     console.log(
-      `✅ Already contacted ${maxLeadsPerDay} leads today. Skipping clicks but Telegram sent.`
+      `✅ Already contacted ${maxLeadsPerDay} leads today. Skipping clicks but Telegram sent.`,
     );
     await browser.close();
     return;
