@@ -240,7 +240,7 @@ function parseOrderValue(text) {
         ? true
         : config.allowedStates.includes(lead.state);
 
-    return (matchesKeyword || isHighValue) && matchesState;
+    return matchesKeyword || isHighValue;
   });
 
   console.log(
