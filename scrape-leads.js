@@ -339,19 +339,19 @@ function parseOrderValue(text) {
       if (!contactBtn) continue;
       await contactBtn.scrollIntoViewIfNeeded();
       console.log(`👉 Clicking 'Contact Buyer Now' for: ${lead.title}`);
-      // await contactBtn.click({ delay: 300 });
-      // await page.waitForTimeout(4000);
+      await contactBtn.click({ delay: 300 });
+      await page.waitForTimeout(4000);
 
-      // const msgBox = await page.$("#txtmsgbox");
-      // if (msgBox) {
-      //   await sendTelegramMessage("New Lead Bought: " + lead.title);
-      //   await msgBox.fill(message);
-      //   const sendBtn = await page.$("#sendbutton");
-      //   if (sendBtn) {
-      //     await sendBtn.click();
-      //     console.log("✅ Message sent successfully!");
-      //   }
-      // }
+      const msgBox = await page.$("#txtmsgbox");
+      if (msgBox) {
+        await sendTelegramMessage("New Lead Bought: " + lead.title);
+        await msgBox.fill(message);
+        const sendBtn = await page.$("#sendbutton");
+        if (sendBtn) {
+          await sendBtn.click();
+          console.log("✅ Message sent successfully!");
+        }
+      }
 
       history.push({
         offerId: lead.offerId,
