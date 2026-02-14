@@ -126,21 +126,48 @@ function parseOrderValue(text) {
 
   // --- Apply Location Filter from config.json ---
   const locationMap = {
-    Recommended: "text=Recommended",
-    Rajasthan: "text=Rajasthan",
-    India: "text=India",
-    "Nearby States": "text=Nearby States",
+    Recommended: page.locator("text=Recommended").first(),
+    Rajasthan: page.locator("text=Rajasthan").first(),
+    India: page.locator("text=India", { hasText: /^India$/ }).first(),
+    "Nearby States": page.locator("text=Nearby States").first(),
   };
-
-  if (config.locationFilter && locationMap[config.locationFilter]) {
+  if (config.locationFilter) {
     console.log("📍 Applying location filter:", config.locationFilter);
 
     try {
-      const selector = locationMap[config.locationFilter];
+      const container = page.locator(".filter_loc");
 
-      await page.waitForSelector(selector, { timeout: 10000 });
-      await page.click(selector);
-      await page.waitForTimeout(2000);
+      // Step 1: ensure container exists
+      await container.waitFor({ state: "attached", timeout: 15000 });
+
+      // Step 2: hover to reveal hidden options
+      await container.hover();
+
+      // alternative fallback (very reliable)
+      await container.dispatchEvent("mouseenter");
+
+      // Step 3: locate exact option
+      const option = container.locator(
+        `li[title="${config.locationFilter}"] label.rdo_btn`,
+      );
+
+      // Step 4: wait until attached (not visible)
+      await option.waitFor({
+        state: "attached",
+        timeout: 15000,
+      });
+
+      // Step 5: click using force (critical)
+      await option.click({ force: true });
+
+      console.log("⏳ Waiting for leads reload...");
+
+      // Step 6: wait for ajax reload
+      await page.waitForLoadState("networkidle");
+
+      await page.waitForSelector("#bl_listing .bl_grid", {
+        timeout: 15000,
+      });
 
       console.log(`✔️ Applied filter: ${config.locationFilter}`);
     } catch (err) {
@@ -312,19 +339,19 @@ function parseOrderValue(text) {
       if (!contactBtn) continue;
       await contactBtn.scrollIntoViewIfNeeded();
       console.log(`👉 Clicking 'Contact Buyer Now' for: ${lead.title}`);
-      await contactBtn.click({ delay: 300 });
-      await page.waitForTimeout(4000);
+      // await contactBtn.click({ delay: 300 });
+      // await page.waitForTimeout(4000);
 
-      const msgBox = await page.$("#txtmsgbox");
-      if (msgBox) {
-        await sendTelegramMessage("New Lead Bought: " + lead.title);
-        await msgBox.fill(message);
-        const sendBtn = await page.$("#sendbutton");
-        if (sendBtn) {
-          await sendBtn.click();
-          console.log("✅ Message sent successfully!");
-        }
-      }
+      // const msgBox = await page.$("#txtmsgbox");
+      // if (msgBox) {
+      //   await sendTelegramMessage("New Lead Bought: " + lead.title);
+      //   await msgBox.fill(message);
+      //   const sendBtn = await page.$("#sendbutton");
+      //   if (sendBtn) {
+      //     await sendBtn.click();
+      //     console.log("✅ Message sent successfully!");
+      //   }
+      // }
 
       history.push({
         offerId: lead.offerId,
